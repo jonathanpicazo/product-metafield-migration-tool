@@ -1,3 +1,7 @@
+/*
+  utility functions used to fetch/parse data
+*/
+
 import "dotenv/config";
 import fetch from "node-fetch";
 
@@ -28,9 +32,9 @@ export const fetchRetailStorefront = async (
 export const fetchWholesaleStagingAdmin = async (
   query: string,
   variables?: any
-) => {
+): Promise<any> => {
   try {
-    const url = `https://suavecito-wholesale.myshopify.com/admin/api/2023-04/graphql.json`;
+    const url = `https://staging-suavecito-wholesale.myshopify.com/admin/api/2023-04/graphql.json`;
     const res = await fetch(url, {
       method: "POST",
       headers: {
