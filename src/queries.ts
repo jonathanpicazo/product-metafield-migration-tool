@@ -1,13 +1,54 @@
-import {
-  PRODUCT_FRAGMENT_STOREFRONT,
-  PRODUCT_FRAGMENT_ADMIN,
-} from "./fragments";
+import { PRODUCT_FRAGMENT_ADMIN, MEDIA_IMAGE_FRAGMENT } from "./fragments";
 
 export const STOREFRONT_GET_PRODUCT_QUERY = `#graphql
-  ${PRODUCT_FRAGMENT_STOREFRONT}
-  query getSourceProduct($handle: String!) {
+  ${MEDIA_IMAGE_FRAGMENT}
+  query getSourceProduct($handle: String!, $productIdentifiers: [HasMetafieldsIdentifier!]! ,$variantIdentifiers: [HasMetafieldsIdentifier!]!) {
     product(handle: $handle) {
-      ...ProductFragment
+      id
+      handle
+      title
+      metafields(identifiers: $productIdentifiers) {
+        key
+        namespace
+        type
+        value
+        reference {
+          ...MediaImageFragment
+        }
+        references(first: 10) {
+          nodes {
+            ...MediaImageFragment
+          }
+        }
+      }
+      variants(first: 100) {
+        nodes {
+          id
+          title
+          sku
+          image {
+            url
+            altText
+          }
+          product {
+            title
+          }
+          metafields(identifiers: $variantIdentifiers) {
+            key
+            namespace
+            type
+            value
+            reference {
+              ...MediaImageFragment
+            }
+            references(first: 10) {
+              nodes {
+                ...MediaImageFragment
+              }
+            }
+          }
+        }
+      }
     }
   }
 `;

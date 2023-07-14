@@ -28,6 +28,19 @@ export type Image = {
   width: number;
 };
 
+export type Product = {
+  id: string;
+  handle: string;
+  variants:
+    | {
+        edges: {
+          node: ProductVariant;
+        }[];
+      }
+    | { nodes: ProductVariant[] };
+  metafields: Metafield[] | null;
+};
+
 export type ProductVariant = {
   id: string;
   title: string;
@@ -46,24 +59,35 @@ export type ProductVariant = {
     handle: string;
     title: string;
   };
+  metafields: Metafield[] | null;
 };
 
 export type MetafieldsSetInput = {
   key: string;
   namespace: string;
   ownerId: string;
-  type: "list.file_reference";
+  type: string;
   value: string;
 };
 
-export type Product = {
+export type Metafield = {
+  key: string;
+  namespace: string;
+  type: string;
+  value: string;
+  reference: MediaImage | null;
+  references: MediaImage[] | null;
+};
+
+export type MediaImage = {
   id: string;
-  handle: string;
-  variants:
-    | {
-        edges: {
-          node: ProductVariant;
-        }[];
-      }
-    | { nodes: ProductVariant[] };
+  image: {
+    url: string;
+    altText: string;
+  };
+};
+
+export type HasMetafieldsIdentifier = {
+  key: string;
+  namespace: string;
 };

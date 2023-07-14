@@ -28,8 +28,8 @@ export const fetchStorefrontSource = async (
       },
       body: JSON.stringify({ query, variables }),
     });
-
     const json = await res.json();
+    console.log("JSON", json);
     return json;
   } catch (err: any) {
     console.error("ERROR", err);
@@ -52,7 +52,6 @@ export const fetchAdminDestination = async (
       body: JSON.stringify({ query, variables }),
     });
     const json = await res.json();
-    console.log("JSON ", json);
     return json;
   } catch (err: any) {
     console.error("ERROR", err);

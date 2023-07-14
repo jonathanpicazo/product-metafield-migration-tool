@@ -3,6 +3,7 @@ import {
   fetchStorefrontSource,
   flattenConnection,
   isEmpty,
+  prettyPrint,
 } from "./utils";
 
 import {
@@ -10,42 +11,84 @@ import {
   STOREFRONT_GET_PRODUCT_QUERY,
 } from "./queries";
 
+import { uploadMetafields, getMetafieldPayload } from "./helpers";
+
 import {
-  createFilePayload,
-  uploadFiles,
-  createImageMetafield,
-} from "./helpers";
+  PRODUCT_SOURCE_METAFIELD_IDENTIFIER,
+  VARIANT_SOURCE_METAFIELD_IDENTIFIER,
+} from "./consts";
+import { Metafield, MetafieldsSetInput, ProductVariant } from "./types";
 
-const testHandle = "test-multi";
+const migrateMetafields = async (productHandle: string) => {
+  try {
+    const srcRes = await fetchStorefrontSource(STOREFRONT_GET_PRODUCT_QUERY, {
+      handle: testHandle,
+      productIdentifiers: PRODUCT_SOURCE_METAFIELD_IDENTIFIER,
+      variantIdentifiers: VARIANT_SOURCE_METAFIELD_IDENTIFIER,
+    });
 
-const res = await fetchStorefrontSource(STOREFRONT_GET_PRODUCT_QUERY, {
-  handle: testHandle,
-});
+    const dstRes = await fetchAdminDestination(ADMIN_GET_PRODUCT_QUERY, {
+      handle: testHandle,
+    });
+    const srcProduct = srcRes.data.product;
+    const dstProduct = dstRes.data.productByHandle;
+    if (!(srcProduct && dstProduct)) return;
+    if (srcProduct.handle !== dstProduct.handle) return;
+    // if handles match, copy over source metafields to destination product
+    // product metafield migration
+    if (srcProduct.metafields) {
+      const productMetafields = srcProduct.metafields.filter(
+        (m: Metafield | null) => m
+      );
+      const metafieldPayload: MetafieldsSetInput[] = await getMetafieldPayload(
+        productMetafields,
+        srcProduct,
+        dstProduct
+      );
+      // upload source metafields to destination if payload created
+      if (!isEmpty(metafieldPayload)) {
+        const res = await uploadMetafields(metafieldPayload);
+        console.log("UPLOADED PRODUCT METAFIELDS", prettyPrint(res));
+      }
+    }
 
-const res2 = await fetchAdminDestination(ADMIN_GET_PRODUCT_QUERY, {
-  handle: testHandle,
-});
-const srcProduct = res.data.product;
-const dstProduct = res2.data.productByHandle;
+    // variant metafield migration
 
-if (srcProduct && dstProduct) {
-  // if handles match, copy over source metafields to destination variant
-  if (srcProduct.handle === dstProduct.handle) {
-    const srcVariants = flattenConnection(srcProduct.variants);
-    const dstVariants = flattenConnection(dstProduct.variants);
+    const srcVariants = flattenConnection(
+      srcProduct.variants
+    ) as ProductVariant[];
+    const dstVariants = flattenConnection(
+      dstProduct.variants
+    ) as ProductVariant[];
 
     for (const variant of dstVariants) {
+      // if source variant exists, copy metafield data
       const matchingSrcVariant = srcVariants.find(
         (el) => el.sku === variant.sku
       );
-      if (matchingSrcVariant) {
-        const filePayload = createFilePayload(matchingSrcVariant);
-        console.log("filePayload", filePayload);
-        // const imageIds = await uploadFiles(filePayload);
-        // if (imageIds && !isEmpty(imageIds)) {
-        //   const response = await createImageMetafield(imageIds, variant.id);
-        // }
-      }
+      if (!matchingSrcVariant || !matchingSrcVariant.metafields) break;
+
+      const variantMetafields = matchingSrcVariant.metafields.filter(
+        (m: Metafield | null) => m
+      );
+
+      const metafieldPayload: MetafieldsSetInput[] = await getMetafieldPayload(
+        variantMetafields,
+        matchingSrcVariant,
+        variant
+      );
+
+      if (isEmpty(metafieldPayload)) break;
+
+      const res = await uploadMetafields(metafieldPayload);
+
+      console.log("UPLOADED VARIANT METAFIELDS", prettyPrint(res));
     }
+  } catch (error) {
+    console.log("ERROR", error);
   }
-}
+};
+
+const testHandle = "test-multi";
+
+const response = await migrateMetafields("test-handle");
