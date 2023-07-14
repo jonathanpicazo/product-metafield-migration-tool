@@ -1,36 +1,51 @@
 import {
-  fetchRetailStorefront,
-  fetchWholesaleStagingAdmin,
+  fetchAdminDestination,
+  fetchStorefrontSource,
   flattenConnection,
+  isEmpty,
 } from "./utils";
 
-import type { Product } from "./types";
+import {
+  ADMIN_GET_PRODUCT_QUERY,
+  STOREFRONT_GET_PRODUCT_QUERY,
+} from "./queries";
 
-import { RETAIL_PRODUCT_QUERY, WHOLESALE_PRODUCT_QUERY } from "./queries";
+import {
+  createFilePayload,
+  uploadFiles,
+  createImageMetafield,
+} from "./helpers";
 
-const matchMetafields = (oldProduct: Product, newProduct: Product) => {
-  const oldVariants = flattenConnection(oldProduct.variants);
+const testHandle = "test-multi";
 
-  const newVariants = flattenConnection(newProduct.variants);
-  newVariants.forEach((el) => {
-    console.log("el", el);
-  });
-};
-
-const sampleProduct = {
-  storefrontHandle: "original-hold-pomade",
-  adminHandle: "test-variants",
-};
-
-const { data } = await fetchRetailStorefront(RETAIL_PRODUCT_QUERY, {
-  handle: sampleProduct.storefrontHandle,
-});
-const storefrontProduct = data.product;
-
-const data2 = await fetchWholesaleStagingAdmin(WHOLESALE_PRODUCT_QUERY, {
-  handle: sampleProduct.adminHandle,
+const res = await fetchStorefrontSource(STOREFRONT_GET_PRODUCT_QUERY, {
+  handle: testHandle,
 });
 
-const adminProduct = data2.data.productByHandle;
+const res2 = await fetchAdminDestination(ADMIN_GET_PRODUCT_QUERY, {
+  handle: testHandle,
+});
+const srcProduct = res.data.product;
+const dstProduct = res2.data.productByHandle;
 
-matchMetafields(storefrontProduct, adminProduct);
+if (srcProduct && dstProduct) {
+  // if handles match, copy over source metafields to destination variant
+  if (srcProduct.handle === dstProduct.handle) {
+    const srcVariants = flattenConnection(srcProduct.variants);
+    const dstVariants = flattenConnection(dstProduct.variants);
+
+    for (const variant of dstVariants) {
+      const matchingSrcVariant = srcVariants.find(
+        (el) => el.sku === variant.sku
+      );
+      if (matchingSrcVariant) {
+        const filePayload = createFilePayload(matchingSrcVariant);
+        console.log("filePayload", filePayload);
+        // const imageIds = await uploadFiles(filePayload);
+        // if (imageIds && !isEmpty(imageIds)) {
+        //   const response = await createImageMetafield(imageIds, variant.id);
+        // }
+      }
+    }
+  }
+}
