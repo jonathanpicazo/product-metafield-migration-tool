@@ -10,58 +10,28 @@ import {
 import { flattenConnection, isEmpty, fetchAdminDestination } from "./utils";
 import { ADMIN_SET_METAFIELD_QUERY, ADMIN_UPLOAD_FIlES_QUERY } from "./queries";
 
+/*
+  creates a payload of type FileCreateInput[] for mutation
+  accepts an array of MediaImages
+*/
 export const createFilePayload = (
   metafieldImages: MediaImage[],
   owner: Product | ProductVariant
-) => {
-  // const unformattedTitle =
-  //   variant.title === "Default Title"
-  //     ? variant.product.title
-  //     : `${variant.product.title}-${variant.title}`;
-  // const title = unformattedTitle.replace(/\s/g, "_").replace("/", "-").trim();
-
+): FileCreateInput[] => {
   return metafieldImages.map((variantImage, index) => {
     const { image } = variantImage;
     return {
       alt: image.altText ?? "",
       contentType: "IMAGE",
-      // duplicateResolutionMode: "REPLACE",
-      // filename: `migration-${title}-variant-meta-image-${index + 1}`,
       originalSource: image.url,
     } as FileCreateInput;
   });
 };
 
-export const uploadFiles = async (filePayload: FileCreateInput[]) => {
-  try {
-    if (!isEmpty(filePayload)) {
-      const res = await fetchAdminDestination(ADMIN_UPLOAD_FIlES_QUERY, {
-        fileInput: filePayload,
-      });
-      const { files }: { files: File[] } = res.data.fileCreate;
-      const { throttleStatus } = res.extensions.cost;
-      if (!files) return [];
-
-      return files.map((file) => file.id);
-    }
-  } catch (error) {
-    console.log("error", error);
-  }
-};
-
-export const uploadMetafields = async (
-  metafieldPayload: MetafieldsSetInput[]
-) => {
-  try {
-    const res = await fetchAdminDestination(ADMIN_SET_METAFIELD_QUERY, {
-      metafields: metafieldPayload,
-    });
-    return res;
-  } catch (error) {
-    console.log("error", error);
-  }
-};
-
+/*
+  determines whether the metafield value property is a normal value, reference, or list_reference
+  accepts a string, which should be metafield.value
+*/
 export const getMetafieldValueType = (
   type: string
 ): "list-reference" | "reference" | "value" => {
@@ -72,6 +42,11 @@ export const getMetafieldValueType = (
   return "value";
 };
 
+/*
+  returns the metafieldSet payload for the destination product/variant
+  accepts metafields array, source owner, and destination owner
+  owners are either product or variant
+*/
 export const getMetafieldPayload = async (
   metafields: Metafield[],
   srcOwner: Product | ProductVariant,
@@ -96,6 +71,12 @@ export const getMetafieldPayload = async (
   }
   return metafieldPayload;
 };
+
+/*
+  returns the metafieldValueInput to be used in metafieldSet mutation
+  accepts metafield and owner
+  will upload files to destination store if type reference
+*/
 
 export const getMetafieldValueInput = async (
   metafield: Metafield,
@@ -124,4 +105,45 @@ export const getMetafieldValueInput = async (
       : imageIds[0];
 
   return metafieldInput;
+};
+
+/*
+  uploads files to destination store
+  runs mutation filesCreate
+  accepts FileCreateInput[] arr
+*/
+export const uploadFiles = async (filePayload: FileCreateInput[]) => {
+  try {
+    if (!isEmpty(filePayload)) {
+      const res = await fetchAdminDestination(ADMIN_UPLOAD_FIlES_QUERY, {
+        fileInput: filePayload,
+      });
+      const { files }: { files: File[] } = res.data.fileCreate;
+      const { throttleStatus } = res.extensions.cost;
+      if (!files) return [];
+
+      return files.map((file) => file.id);
+    }
+  } catch (error) {
+    console.log("error", error);
+  }
+};
+
+/*
+  uploads metafields to destination store
+  runs mutation metafieldSet
+  accepts MetafieldSetInput[] arr
+*/
+
+export const uploadMetafields = async (
+  metafieldPayload: MetafieldsSetInput[]
+) => {
+  try {
+    const res = await fetchAdminDestination(ADMIN_SET_METAFIELD_QUERY, {
+      metafields: metafieldPayload,
+    });
+    return res;
+  } catch (error) {
+    console.log("error", error);
+  }
 };

@@ -21,6 +21,7 @@ import { Metafield, MetafieldsSetInput, ProductVariant } from "./types";
 
 const migrateMetafields = async (productHandle: string) => {
   try {
+    // fetch src and dst products
     const srcRes = await fetchStorefrontSource(STOREFRONT_GET_PRODUCT_QUERY, {
       handle: testHandle,
       productIdentifiers: PRODUCT_SOURCE_METAFIELD_IDENTIFIER,
@@ -32,8 +33,10 @@ const migrateMetafields = async (productHandle: string) => {
     });
     const srcProduct = srcRes.data.product;
     const dstProduct = dstRes.data.productByHandle;
+
     if (!(srcProduct && dstProduct)) return;
     if (srcProduct.handle !== dstProduct.handle) return;
+
     // if handles match, copy over source metafields to destination product
     // product metafield migration
     if (srcProduct.metafields) {
@@ -79,13 +82,15 @@ const migrateMetafields = async (productHandle: string) => {
       );
 
       if (isEmpty(metafieldPayload)) break;
-
+      // upload source metafields to destination if payload created
       const res = await uploadMetafields(metafieldPayload);
 
       console.log("UPLOADED VARIANT METAFIELDS", prettyPrint(res));
     }
+    return true;
   } catch (error) {
     console.log("ERROR", error);
+    return false;
   }
 };
 
