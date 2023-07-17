@@ -1,6 +1,6 @@
 // TODO:  move to config file
 
-import { HasMetafieldsIdentifier } from "./types";
+import { HasMetafieldsIdentifier } from "./types/shopify";
 export const METAFIELD_NAMESPACE = "suavecito";
 export const PRODUCT_SOURCE_METAFIELD_IDENTIFIER: HasMetafieldsIdentifier[] = [
   {

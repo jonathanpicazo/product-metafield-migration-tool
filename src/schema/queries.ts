@@ -1,10 +1,10 @@
-import { PRODUCT_FRAGMENT_ADMIN, MEDIA_IMAGE_FRAGMENT } from "./fragments";
+import { MEDIA_IMAGE_FRAGMENT } from "./fragments";
 
 export const STOREFRONT_GET_PRODUCT_QUERY = `#graphql
   ${MEDIA_IMAGE_FRAGMENT}
   query getSourceProduct($handle: String!, $productIdentifiers: [HasMetafieldsIdentifier!]! ,$variantIdentifiers: [HasMetafieldsIdentifier!]!) {
     product(handle: $handle) {
-      id
+      id  
       handle
       title
       metafields(identifiers: $productIdentifiers) {
@@ -54,10 +54,16 @@ export const STOREFRONT_GET_PRODUCT_QUERY = `#graphql
 `;
 
 export const ADMIN_GET_PRODUCT_QUERY = `#graphql
-  ${PRODUCT_FRAGMENT_ADMIN}
   query getDestinationProduct($handle: String!) {
     productByHandle(handle: $handle) {
-      ...ProductFragment
+      id
+      handle
+      variants(first: 100) {
+        nodes {
+          id
+          sku
+        }
+      }
     }
   }
 `;
@@ -69,8 +75,9 @@ export const ADMIN_SET_METAFIELD_QUERY = `#graphql
         id
         key
         namespace
-        ownerType
         value
+        type
+        ownerType
         createdAt
       }
       userErrors {
