@@ -1,9 +1,14 @@
-/*
-  utility functions used to fetch/parse data
-*/
+/**
+ * This file contains util functions used for fetching or parsing data
+ */
 
 import "dotenv/config";
 import fetch from "node-fetch";
+import * as CSVWriter from "csv-writer";
+import path from "path";
+import { fileURLToPath } from "url";
+
+import type { CSVRecord, CSVWriterType } from "../lib";
 
 const sourceKey = process.env.SOURCE_SHOPIFY_STOREFRONT_KEY as string;
 const sourceStorefrontName = process.env
@@ -41,7 +46,6 @@ export const fetchAdminDestination = async (
 ): Promise<any> => {
   try {
     const url = `https://${destinationStorefrontName}.myshopify.com/admin/api/${destinationApiVer}/graphql.json`;
-    console.log("admin using url", url);
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -89,4 +93,27 @@ export const prettyPrint = (obj: {}) => {
     return "please pass an object into this function, pretty print failed";
   }
   return JSON.stringify(obj, null, 2);
+};
+
+export const initializeCSV = () => {
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const createCSVWriter = CSVWriter.createObjectCsvWriter;
+  const csvWriter = createCSVWriter({
+    path: path.join(__dirname, "../../out/progress.csv"),
+    header: [
+      { id: "handle", title: "Handle" },
+      { id: "sku", title: "SKU" },
+      { id: "metafields", title: "Metafields Set" },
+      { id: "outcome", title: "Outcome" },
+    ],
+  });
+  return csvWriter;
+};
+
+export const writeCSVColumn = async (
+  csvWriter: CSVWriterType,
+  record: CSVRecord
+) => {
+  const csvRes = await csvWriter.writeRecords([record]);
+  return csvRes;
 };

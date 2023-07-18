@@ -8,16 +8,19 @@ import {
   fetchAdminDestination,
   prettyPrint,
   fetchStorefrontSource,
+  writeCSVColumn,
 } from "./utils";
 import {
   ADMIN_SET_METAFIELD_QUERY,
   ADMIN_UPLOAD_FIlES_QUERY,
   STOREFRONT_GET_PRODUCT_QUERY,
   ADMIN_GET_PRODUCT_QUERY,
+  STOREFRONT_PRODUCTS_LOOP_QUERY,
 } from "../schema";
 import {
   VARIANT_SOURCE_METAFIELD_IDENTIFIER,
   PRODUCT_SOURCE_METAFIELD_IDENTIFIER,
+  PAGE_BY,
 } from "../lib/consts";
 
 import type {
@@ -28,32 +31,74 @@ import type {
   MetafieldsSetInput,
   Metafield,
   MediaImage,
+  CSVWriterType,
 } from "../lib/types";
 
-import config from "../lib/config";
-
 /**
- * Migrates a product and child variants metafield from source to destination
- * @param {string} productHandle - handle of a product
+ * Recursive function that paginates by 100
+ * Runs migrateMetafields() on each product
+ * @param {string | null} cursor - cursor pagination object for product loop
+ * @param {CSVWriterType} csvWriter - csvWriter object for logging
  */
-export const migrateMetafields = async (productHandle: string) => {
+export const startMigration = async (
+  cursor: string | null = null,
+  csvWriter: CSVWriterType
+) => {
   try {
-    console.log("MIGRATING ON HANDLE", productHandle);
-    // fetch src and dst products
-    const srcRes = await fetchStorefrontSource(STOREFRONT_GET_PRODUCT_QUERY, {
-      handle: productHandle,
+    const res = await fetchStorefrontSource(STOREFRONT_PRODUCTS_LOOP_QUERY, {
+      pageBy: PAGE_BY,
+      cursor,
       productIdentifiers: PRODUCT_SOURCE_METAFIELD_IDENTIFIER,
       variantIdentifiers: VARIANT_SOURCE_METAFIELD_IDENTIFIER,
     });
+    const { data } = res;
 
-    const dstRes = await fetchAdminDestination(ADMIN_GET_PRODUCT_QUERY, {
-      handle: productHandle,
+    if (!data) throw Error("Fetch failed to return data");
+
+    const { products } = data;
+    const { hasNextPage, endCursor } = products.pageInfo;
+    const flattenedProducts = flattenConnection(products);
+    for (const product of flattenedProducts) {
+      console.log("On product", product.handle);
+      const res = await migrateMetafields(product, csvWriter);
+    }
+    if (hasNextPage) {
+      const recursiveRes = await startMigration(endCursor, csvWriter);
+    } else {
+      console.log("End of migration!");
+    }
+  } catch (error) {
+    console.error("Error on startMigration call", error);
+  }
+};
+
+/**
+ * Migrates a product and child variants metafield from source to destination
+ * @param {string} srcProduct - source product with metafields to be copied
+ * @param {CSVWriterType} csvWriter - csvWriter object for logging
+ */
+export const migrateMetafields = async (
+  srcProduct: Product,
+  csvWriter: CSVWriterType
+) => {
+  try {
+    const res = await fetchAdminDestination(ADMIN_GET_PRODUCT_QUERY, {
+      handle: srcProduct.handle,
     });
-    const srcProduct = srcRes.data.product;
-    const dstProduct = dstRes.data.productByHandle;
+    const { data } = res;
+    if (!data) return;
 
-    if (!(srcProduct && dstProduct)) return;
-    if (srcProduct.handle !== dstProduct.handle) return;
+    const dstProduct = data.productByHandle;
+
+    if (!dstProduct || srcProduct.handle !== dstProduct.handle) {
+      const csvRes = await createEmptyLog(
+        csvWriter,
+        srcProduct.handle,
+        "No matching handle in destination store"
+      );
+      console.log("no matching handle");
+      return;
+    }
 
     // if handles match, copy over source metafields to destination product
     // product metafield migration
@@ -69,6 +114,16 @@ export const migrateMetafields = async (productHandle: string) => {
       // upload source metafields to destination if payload created
       if (!isEmpty(metafieldPayload)) {
         const res = await uploadMetafields(metafieldPayload);
+        const log = createMetafieldLog(res);
+        const csvRes = await writeCSVColumn(csvWriter, {
+          handle: srcProduct.handle,
+          sku: "",
+          metafields: log,
+          outcome:
+            log === ""
+              ? "No metafields uploaded"
+              : "Metafields successfully uploaded",
+        });
         console.log("UPLOADED PRODUCT METAFIELDS", prettyPrint(res));
       }
     }
@@ -102,12 +157,22 @@ export const migrateMetafields = async (productHandle: string) => {
       if (isEmpty(metafieldPayload)) break;
       // upload source metafields to destination if payload created
       const res = await uploadMetafields(metafieldPayload);
-
+      const log = createMetafieldLog(res);
+      const csvRes = await writeCSVColumn(csvWriter, {
+        handle: srcProduct.handle,
+        sku: matchingSrcVariant.sku,
+        metafields: log,
+        outcome:
+          log === ""
+            ? "No metafields uploaded"
+            : "Metafields successfully uploaded",
+      });
       console.log("UPLOADED VARIANT METAFIELDS", prettyPrint(res));
     }
+
     return true;
   } catch (error) {
-    console.log("ERROR", error);
+    console.error("Error on migrateMetafields", error);
     return false;
   }
 };
@@ -135,29 +200,33 @@ export const getMetafieldValueInput = async (
   metafield: Metafield,
   owner: Product | ProductVariant
 ) => {
-  const metafieldDataType = getMetafieldValueType(metafield.type);
-  if (metafieldDataType === "value") {
-    console.log("METAFIELD INPUT", metafield.value);
-    return metafield.value;
+  try {
+    const metafieldDataType = getMetafieldValueType(metafield.type);
+    if (metafieldDataType === "value") {
+      return metafield.value;
+    }
+    // metafield is a file reference
+    const metafieldImages =
+      metafieldDataType === "list-reference"
+        ? // @ts-ignore
+          flattenConnection(metafield.references)
+        : [metafield.reference];
+    const filePayload = createFilePayload(metafieldImages, owner);
+    const imageIds = await uploadFiles(filePayload);
+    if (!imageIds || isEmpty(imageIds)) return;
+
+    // if reference is a list, return stringified array
+    // else, return single string value
+    const metafieldInput =
+      metafieldDataType === "list-reference"
+        ? JSON.stringify(imageIds)
+        : imageIds[0];
+
+    return metafieldInput;
+  } catch (error) {
+    console.error("Error on getMetafieldValueInput");
+    return "";
   }
-  // metafield is a file reference
-  const metafieldImages =
-    metafieldDataType === "list-reference"
-      ? // @ts-ignore
-        flattenConnection(metafield.references)
-      : [metafield.reference];
-  const filePayload = createFilePayload(metafieldImages, owner);
-  const imageIds = await uploadFiles(filePayload);
-  if (!imageIds || isEmpty(imageIds)) return;
-
-  // if reference is a list, return stringified array
-  // else, return single string value
-  const metafieldInput =
-    metafieldDataType === "list-reference"
-      ? JSON.stringify(imageIds)
-      : imageIds[0];
-
-  return metafieldInput;
 };
 
 /**
@@ -196,7 +265,7 @@ export const uploadFiles = async (filePayload: FileCreateInput[]) => {
       return files.map((file) => file.id);
     }
   } catch (error) {
-    console.log("error", error);
+    console.error("Error on uploadFiles", error);
   }
 };
 
@@ -226,7 +295,7 @@ export const getMetafieldPayload = async (
       });
     }
   } catch (error) {
-    console.log("ERROR", error);
+    console.error("Error on getMetafieldPayload", error);
   }
   return metafieldPayload;
 };
@@ -244,6 +313,129 @@ export const uploadMetafields = async (
     });
     return res;
   } catch (error) {
-    console.log("error", error);
+    console.error("Error on uploadMetafields", error);
   }
 };
+
+/**
+ * Creates log object for owner metafield column
+ * @param {MetafieldSetResponse} response - response when calling uploadMetafields
+ */
+export const createMetafieldLog = (response: {
+  data: {
+    metafieldsSet: {
+      metafields: Metafield[];
+    };
+  };
+}) => {
+  const { data } = response;
+  if (!data) {
+    throw Error("data is null");
+  }
+  const { metafields } = data.metafieldsSet;
+  const keyset = metafields.map((m) => `${m.key}.${m.namespace}`);
+  return JSON.stringify(keyset);
+};
+
+/**
+ * Creates log object for owner metafield column
+ * @param {MetafieldSetResponse} response - response when calling uploadMetafields
+ */
+export const createEmptyLog = async (
+  csvWriter: CSVWriterType,
+  handle: string,
+  reason: string
+) => {
+  try {
+    const csvRes = await writeCSVColumn(csvWriter, {
+      handle: handle,
+      sku: "",
+      metafields: "",
+      outcome: reason,
+    });
+  } catch (error) {
+    console.error("Error on createEmptyLog", error);
+  }
+};
+
+///TESTING
+
+// /**
+//  * Migrates a product and child variants metafield from source to destination
+//  * @param {string} productHandle - handle of a product
+//  */
+// export const migrateMetafieldsSingle = async (productHandle: string) => {
+//   try {
+//     console.log("MIGRATING ON HANDLE", productHandle);
+//     // fetch src and dst products
+//     const srcRes = await fetchStorefrontSource(STOREFRONT_GET_PRODUCT_QUERY, {
+//       handle: productHandle,
+//       productIdentifiers: PRODUCT_SOURCE_METAFIELD_IDENTIFIER,
+//       variantIdentifiers: VARIANT_SOURCE_METAFIELD_IDENTIFIER,
+//     });
+
+//     const dstRes = await fetchAdminDestination(ADMIN_GET_PRODUCT_QUERY, {
+//       handle: productHandle,
+//     });
+//     const srcProduct = srcRes.data.product;
+//     const dstProduct = dstRes.data.productByHandle;
+
+//     if (!(srcProduct && dstProduct)) return;
+//     if (srcProduct.handle !== dstProduct.handle) return;
+
+//     // if handles match, copy over source metafields to destination product
+//     // product metafield migration
+//     if (srcProduct.metafields) {
+//       const productMetafields = srcProduct.metafields.filter(
+//         (m: Metafield | null) => m
+//       );
+//       const metafieldPayload: MetafieldsSetInput[] = await getMetafieldPayload(
+//         productMetafields,
+//         srcProduct,
+//         dstProduct
+//       );
+//       // upload source metafields to destination if payload created
+//       if (!isEmpty(metafieldPayload)) {
+//         const res = await uploadMetafields(metafieldPayload);
+//         console.log("UPLOADED PRODUCT METAFIELDS", prettyPrint(res));
+//       }
+//     }
+
+//     // variant metafield migration
+
+//     const srcVariants = flattenConnection(
+//       srcProduct.variants
+//     ) as ProductVariant[];
+//     const dstVariants = flattenConnection(
+//       dstProduct.variants
+//     ) as ProductVariant[];
+
+//     for (const variant of dstVariants) {
+//       // if source variant exists, copy metafield data
+//       const matchingSrcVariant = srcVariants.find(
+//         (el) => el.sku === variant.sku
+//       );
+//       if (!matchingSrcVariant || !matchingSrcVariant.metafields) break;
+
+//       const variantMetafields = matchingSrcVariant.metafields.filter(
+//         (m: Metafield | null) => m
+//       );
+
+//       const metafieldPayload: MetafieldsSetInput[] = await getMetafieldPayload(
+//         variantMetafields,
+//         matchingSrcVariant,
+//         variant
+//       );
+
+//       if (isEmpty(metafieldPayload)) break;
+//       // upload source metafields to destination if payload created
+//       const res = await uploadMetafields(metafieldPayload);
+
+//       console.log("UPLOADED VARIANT METAFIELDS", prettyPrint(res));
+//     }
+//     return true;
+//   } catch (error) {
+//     console.log("ERROR", error);
+//     return false;
+//   }
+// };

@@ -2,7 +2,7 @@ import { MEDIA_IMAGE_FRAGMENT } from "./fragments";
 
 export const STOREFRONT_GET_PRODUCT_QUERY = `#graphql
   ${MEDIA_IMAGE_FRAGMENT}
-  query getSourceProduct($handle: String!, $productIdentifiers: [HasMetafieldsIdentifier!]! ,$variantIdentifiers: [HasMetafieldsIdentifier!]!) {
+  query getSourceProduct($handle: String!, $productIdentifiers: [HasMetafieldsIdentifier!]!, $variantIdentifiers: [HasMetafieldsIdentifier!]!) {
     product(handle: $handle) {
       id  
       handle
@@ -48,6 +48,65 @@ export const STOREFRONT_GET_PRODUCT_QUERY = `#graphql
             }
           }
         }
+      }
+    }
+  }
+`;
+
+export const STOREFRONT_PRODUCTS_LOOP_QUERY = `#graphql
+  ${MEDIA_IMAGE_FRAGMENT}
+  query getStorefrontProducts($pageBy: Int!, $cursor: String, $productIdentifiers: [HasMetafieldsIdentifier!]!, $variantIdentifiers: [HasMetafieldsIdentifier!]!) {
+    products(first: $pageBy, after: $cursor) {
+      nodes {
+        id  
+        handle
+        title
+        metafields(identifiers: $productIdentifiers) {
+          key
+          namespace
+          type
+          value
+          reference {
+            ...MediaImageFragment
+          }
+          references(first: 10) {
+            nodes {
+              ...MediaImageFragment
+            }
+          }
+        }
+        variants(first: 100) {
+          nodes {
+            id
+            title
+            sku
+            image {
+              url
+              altText
+            }
+            product {
+              title
+            }
+            metafields(identifiers: $variantIdentifiers) {
+              key
+              namespace
+              type
+              value
+              reference {
+                ...MediaImageFragment
+              }
+              references(first: 10) {
+                nodes {
+                  ...MediaImageFragment
+                }
+              }
+            }
+          }
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
       }
     }
   }

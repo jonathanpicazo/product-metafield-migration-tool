@@ -1,4 +1,4 @@
-declare global {
+export declare global {
   namespace NodeJS {
     interface ProcessEnv {
       SOURCE_SHOPIFY_STOREFRONT_KEY: string;
