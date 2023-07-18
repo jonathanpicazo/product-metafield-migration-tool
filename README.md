@@ -2,7 +2,7 @@
 
 ## Description
 
-This tool will migrate the product and variant metafield values from one store to another. Metafields of type image files will be uploaded to the destination store. A CSV file will be created that keeps a log of all the metafields that have been updated.
+This is a node script utilizing the Shopify Storefront and Admin API to copy product and variant metafields from one store to another. Metafields will be copied over from a source store to a destination store. Metafields of type image files will be uploaded to the destination store. A CSV file will be created that keeps a log of all the metafields that have been updated.
 
 NOTE: This tool does not create the metafield definitions for the metafields created for your destination store, so they will be created and found in metafields without destination if the two stores do not have the same metafield definitions.
 
@@ -25,8 +25,18 @@ DESTINATION_SHOPIFY_STOREFRONT_NAME=newstorename
 DESTINATION_SHOPIFY_API_VERSION=2023-04
 ```
 
+Also go into src/config.ts and add the metafields you want copied over in the metafieldIdentifiers.
+
 **The suggested shopify admin and storefront api version is 04/23**
 
 ### Installation
 
-Clone the repo and make sure to fill out the .env according to the example and config with the metafields you want to copy over to your new store.
+Clone the repo, run npm install, and **make sure to fill out the .env according to the example and config with the metafields you want to copy over to your new store**.
+Then run
+
+```
+npm start
+```
+
+The script will run and output the product metafield status in progress-logs/progress.csv in CSV format. There is a console-output.txt with standard output logs.
+This way you can see the mutations called in the destination store via the admin api.
