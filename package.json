@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node --experimental-specifier-resolution=node --loader ts-node/esm.mjs ./src/index.ts | tee ./out/output.txt",
+    "start": "node --experimental-specifier-resolution=node --loader ts-node/esm.mjs ./src/index.ts | tee ./progress-logs/console-output.txt",
     "dev": "nodemon -L -e ts,json --exec npm start"
   },
   "author": "",

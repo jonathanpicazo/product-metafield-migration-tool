@@ -9,3 +9,22 @@ export interface CSVRecord {
 }
 
 export type CSVWriterType = CsvWriter<ObjectMap<any>>;
+
+export interface Config {
+  apiKey: {
+    storefront: string;
+    admin: string;
+  };
+  storename: {
+    storefront: string;
+    admin: string;
+  };
+  apiVersion: {
+    storefront: string;
+    admin: string;
+  };
+  metafieldIdentifiers: {
+    product: HasMetafieldsIdentifier[];
+    variant: HasMetafieldsIdentifier[];
+  };
+}

@@ -1,45 +1,52 @@
-import nodeConfig from "config";
-import { HasMetafieldsIdentifier } from "./types/shopify";
-
-interface Config {
-  key: {
-    storefront: string;
-    admin: string;
-  };
-  storename: {
-    storefront: string;
-    admin: string;
-  };
-  apiVersion: {
-    storefront: string;
-    admin: string;
-  };
-  metafieldIdentifiers: {
-    product: HasMetafieldsIdentifier[];
-    variant: HasMetafieldsIdentifier[];
-  };
-}
+import "dotenv/config";
+import { Config } from "./lib";
 
 const config: Config = {
-  key: {
-    storefront: nodeConfig.get<string>("key.storefront"),
-    admin: nodeConfig.get<string>("key.admin"),
+  apiKey: {
+    storefront: process.env.SOURCE_SHOPIFY_STOREFRONT_KEY,
+    admin: process.env.DESTINATION_SHOPIFY_ADMIN_KEY,
   },
   storename: {
-    storefront: nodeConfig.get<string>("storename.storefront"),
-    admin: nodeConfig.get<string>("storename.admin"),
+    storefront: process.env.SOURCE_SHOPIFY_STOREFRONT_NAME,
+    admin: process.env.DESTINATION_SHOPIFY_STOREFRONT_NAME,
   },
   apiVersion: {
-    storefront: nodeConfig.get<string>("apiVersion.storefront"),
-    admin: nodeConfig.get<string>("apiVersion.admin"),
+    storefront: process.env.DESTINATION_SHOPIFY_API_VERSION,
+    admin: process.env.DESTINATION_SHOPIFY_API_VERSION,
   },
   metafieldIdentifiers: {
-    product: nodeConfig.get<HasMetafieldsIdentifier[]>(
-      "metafieldIdentifiers.product"
-    ),
-    variant: nodeConfig.get<HasMetafieldsIdentifier[]>(
-      "metafieldIdentifiers.variant"
-    ),
+    product: [
+      {
+        key: "display_pomade_compare",
+        namespace: "suavecito",
+      },
+      {
+        key: "styling_tip",
+        namespace: "suavecito",
+      },
+      {
+        key: "suggested_styles",
+        namespace: "suavecito",
+      },
+    ],
+    variant: [
+      {
+        key: "images",
+        namespace: "suavecito",
+      },
+      {
+        key: "fragrance_profile",
+        namespace: "suavecito",
+      },
+      {
+        key: "pack_quantity",
+        namespace: "suavecito",
+      },
+      {
+        key: "retail_price",
+        namespace: "suavecito",
+      },
+    ],
   },
 };
 export default config;

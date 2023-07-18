@@ -13,15 +13,11 @@ import {
 import {
   ADMIN_SET_METAFIELD_QUERY,
   ADMIN_UPLOAD_FIlES_QUERY,
-  STOREFRONT_GET_PRODUCT_QUERY,
   ADMIN_GET_PRODUCT_QUERY,
   STOREFRONT_PRODUCTS_LOOP_QUERY,
 } from "../schema";
-import {
-  VARIANT_SOURCE_METAFIELD_IDENTIFIER,
-  PRODUCT_SOURCE_METAFIELD_IDENTIFIER,
-  PAGE_BY,
-} from "../lib/consts";
+import { PAGE_BY } from "../lib/consts";
+import config from "../config";
 
 import type {
   Product,
@@ -48,9 +44,10 @@ export const startMigration = async (
     const res = await fetchStorefrontSource(STOREFRONT_PRODUCTS_LOOP_QUERY, {
       pageBy: PAGE_BY,
       cursor,
-      productIdentifiers: PRODUCT_SOURCE_METAFIELD_IDENTIFIER,
-      variantIdentifiers: VARIANT_SOURCE_METAFIELD_IDENTIFIER,
+      productIdentifiers: config.metafieldIdentifiers.product,
+      variantIdentifiers: config.metafieldIdentifiers.variant,
     });
+
     const { data } = res;
 
     if (!data) throw Error("Fetch failed to return data");
@@ -85,11 +82,14 @@ export const migrateMetafields = async (
     const res = await fetchAdminDestination(ADMIN_GET_PRODUCT_QUERY, {
       handle: srcProduct.handle,
     });
+    if (!res.data) {
+      console.error("Error destruturing data on response", res);
+      return;
+    }
     const { data } = res;
     if (!data) return;
 
     const dstProduct = data.productByHandle;
-
     if (!dstProduct || srcProduct.handle !== dstProduct.handle) {
       const csvRes = await createEmptyLog(
         csvWriter,
@@ -102,7 +102,7 @@ export const migrateMetafields = async (
 
     // if handles match, copy over source metafields to destination product
     // product metafield migration
-    if (srcProduct.metafields) {
+    if (srcProduct.metafields && !isEmpty(srcProduct.metafields)) {
       const productMetafields = srcProduct.metafields.filter(
         (m: Metafield | null) => m
       );
@@ -126,6 +126,12 @@ export const migrateMetafields = async (
         });
         console.log("UPLOADED PRODUCT METAFIELDS", prettyPrint(res));
       }
+    } else {
+      const csvRes = await createEmptyLog(
+        csvWriter,
+        srcProduct.handle,
+        "Product has no matching metafields"
+      );
     }
 
     // variant metafield migration
@@ -142,7 +148,24 @@ export const migrateMetafields = async (
       const matchingSrcVariant = srcVariants.find(
         (el) => el.sku === variant.sku
       );
-      if (!matchingSrcVariant || !matchingSrcVariant.metafields) break;
+      // error purposes
+      if (!matchingSrcVariant) {
+        const csvRes = await createEmptyLog(
+          csvWriter,
+          srcProduct.handle,
+          "No matching sku in destination store",
+          variant.sku
+        );
+        break;
+      } else if (!matchingSrcVariant.metafields) {
+        const csvRes = await createEmptyLog(
+          csvWriter,
+          srcProduct.handle,
+          "Variant has no matching metafields",
+          matchingSrcVariant?.sku
+        );
+        break;
+      }
 
       const variantMetafields = matchingSrcVariant.metafields.filter(
         (m: Metafield | null) => m
@@ -338,18 +361,22 @@ export const createMetafieldLog = (response: {
 };
 
 /**
- * Creates log object for owner metafield column
- * @param {MetafieldSetResponse} response - response when calling uploadMetafields
+ * Log function used for products that dont upload metafields
+ * @param {CSVWriterType} csvWriter - response when calling uploadMetafields
+ * @param {string} handle - product.handle
+ * @param {string} reason - outcome log you wish to write
+ * @param {string?} sku - variant.sku
  */
 export const createEmptyLog = async (
   csvWriter: CSVWriterType,
   handle: string,
-  reason: string
+  reason: string,
+  sku: string = ""
 ) => {
   try {
     const csvRes = await writeCSVColumn(csvWriter, {
       handle: handle,
-      sku: "",
+      sku: sku,
       metafields: "",
       outcome: reason,
     });
@@ -357,85 +384,3 @@ export const createEmptyLog = async (
     console.error("Error on createEmptyLog", error);
   }
 };
-
-///TESTING
-
-// /**
-//  * Migrates a product and child variants metafield from source to destination
-//  * @param {string} productHandle - handle of a product
-//  */
-// export const migrateMetafieldsSingle = async (productHandle: string) => {
-//   try {
-//     console.log("MIGRATING ON HANDLE", productHandle);
-//     // fetch src and dst products
-//     const srcRes = await fetchStorefrontSource(STOREFRONT_GET_PRODUCT_QUERY, {
-//       handle: productHandle,
-//       productIdentifiers: PRODUCT_SOURCE_METAFIELD_IDENTIFIER,
-//       variantIdentifiers: VARIANT_SOURCE_METAFIELD_IDENTIFIER,
-//     });
-
-//     const dstRes = await fetchAdminDestination(ADMIN_GET_PRODUCT_QUERY, {
-//       handle: productHandle,
-//     });
-//     const srcProduct = srcRes.data.product;
-//     const dstProduct = dstRes.data.productByHandle;
-
-//     if (!(srcProduct && dstProduct)) return;
-//     if (srcProduct.handle !== dstProduct.handle) return;
-
-//     // if handles match, copy over source metafields to destination product
-//     // product metafield migration
-//     if (srcProduct.metafields) {
-//       const productMetafields = srcProduct.metafields.filter(
-//         (m: Metafield | null) => m
-//       );
-//       const metafieldPayload: MetafieldsSetInput[] = await getMetafieldPayload(
-//         productMetafields,
-//         srcProduct,
-//         dstProduct
-//       );
-//       // upload source metafields to destination if payload created
-//       if (!isEmpty(metafieldPayload)) {
-//         const res = await uploadMetafields(metafieldPayload);
-//         console.log("UPLOADED PRODUCT METAFIELDS", prettyPrint(res));
-//       }
-//     }
-
-//     // variant metafield migration
-
-//     const srcVariants = flattenConnection(
-//       srcProduct.variants
-//     ) as ProductVariant[];
-//     const dstVariants = flattenConnection(
-//       dstProduct.variants
-//     ) as ProductVariant[];
-
-//     for (const variant of dstVariants) {
-//       // if source variant exists, copy metafield data
-//       const matchingSrcVariant = srcVariants.find(
-//         (el) => el.sku === variant.sku
-//       );
-//       if (!matchingSrcVariant || !matchingSrcVariant.metafields) break;
-
-//       const variantMetafields = matchingSrcVariant.metafields.filter(
-//         (m: Metafield | null) => m
-//       );
-
-//       const metafieldPayload: MetafieldsSetInput[] = await getMetafieldPayload(
-//         variantMetafields,
-//         matchingSrcVariant,
-//         variant
-//       );
-
-//       if (isEmpty(metafieldPayload)) break;
-//       // upload source metafields to destination if payload created
-//       const res = await uploadMetafields(metafieldPayload);
-
-//       console.log("UPLOADED VARIANT METAFIELDS", prettyPrint(res));
-//     }
-//     return true;
-//   } catch (error) {
-//     console.log("ERROR", error);
-//     return false;
-//   }
-// };

@@ -2,7 +2,7 @@
  * This file contains util functions used for fetching or parsing data
  */
 
-import "dotenv/config";
+import config from "../config";
 import fetch from "node-fetch";
 import * as CSVWriter from "csv-writer";
 import path from "path";
@@ -10,20 +10,14 @@ import { fileURLToPath } from "url";
 
 import type { CSVRecord, CSVWriterType } from "../lib";
 
-const sourceKey = process.env.SOURCE_SHOPIFY_STOREFRONT_KEY as string;
-const sourceStorefrontName = process.env
-  .SOURCE_SHOPIFY_STOREFRONT_NAME as string;
-const sourceApiVer = process.env.SOURCE_SHOPIFY_API_VERSION as string;
-const destinationKey = process.env.DESTINATION_SHOPIFY_ADMIN_KEY as string;
-const destinationStorefrontName = process.env
-  .DESTINATION_SHOPIFY_STOREFRONT_NAME as string;
-const destinationApiVer = process.env.DESTINATION_SHOPIFY_API_VERSION as string;
-
 export const fetchStorefrontSource = async (
   query: string,
   variables?: any
 ): Promise<any> => {
   try {
+    const sourceKey = config.apiKey.storefront;
+    const sourceStorefrontName = config.storename.storefront;
+    const sourceApiVer = config.apiVersion.storefront;
     const url = `https://${sourceStorefrontName}.myshopify.com/api/${sourceApiVer}/graphql.json`;
     const res = await fetch(url, {
       method: "POST",
@@ -45,6 +39,9 @@ export const fetchAdminDestination = async (
   variables?: any
 ): Promise<any> => {
   try {
+    const destinationKey = config.apiKey.admin;
+    const destinationStorefrontName = config.storename.admin;
+    const destinationApiVer = config.apiVersion.admin;
     const url = `https://${destinationStorefrontName}.myshopify.com/admin/api/${destinationApiVer}/graphql.json`;
     const res = await fetch(url, {
       method: "POST",
@@ -99,7 +96,7 @@ export const initializeCSV = () => {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const createCSVWriter = CSVWriter.createObjectCsvWriter;
   const csvWriter = createCSVWriter({
-    path: path.join(__dirname, "../../out/progress.csv"),
+    path: path.join(__dirname, "../../progress-logs/progress.csv"),
     header: [
       { id: "handle", title: "Handle" },
       { id: "sku", title: "SKU" },
@@ -116,4 +113,18 @@ export const writeCSVColumn = async (
 ) => {
   const csvRes = await csvWriter.writeRecords([record]);
   return csvRes;
+};
+
+export const checkConfig = () => {
+  if (
+    !config.apiKey.admin ||
+    !config.apiKey.storefront ||
+    !config.storename.admin ||
+    !config.storename.storefront ||
+    !config.apiVersion.admin ||
+    !config.apiVersion.storefront
+  ) {
+    return false;
+  }
+  return true;
 };
