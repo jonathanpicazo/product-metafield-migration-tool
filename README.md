@@ -10,7 +10,7 @@ NOTE: This tool does not create the metafield definitions for the metafields cre
 
 ### Metafield Type Support
 
-The only metafield reference supported is of type MediaImages. So a metafield that holds an image or a list of images is supported. Any other reference type is not supported. All other metafield values that arent references are supported. The metafield list type is also supported. This fits our current use case.
+The only metafield reference supported is of type MediaImages. So a metafield that holds an image or a list of images is supported. Any other reference type is not supported. All other metafield values that aren't references are supported. The metafield list type is also supported.
 
 ### Configuration
 
