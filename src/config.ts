@@ -16,36 +16,24 @@ const config: Config = {
   },
   metafieldIdentifiers: {
     product: [
-      {
-        key: "display_pomade_compare",
-        namespace: "suavecito",
-      },
-      {
-        key: "styling_tip",
-        namespace: "suavecito",
-      },
-      {
-        key: "suggested_styles",
-        namespace: "suavecito",
-      },
+      // {
+      //   key: "example_key",
+      //   namespace: "example",
+      // },
+      // {
+      //   key: "example_key2",
+      //   namespace: "example",
+      // },
     ],
     variant: [
-      {
-        key: "images",
-        namespace: "suavecito",
-      },
-      {
-        key: "fragrance_profile",
-        namespace: "suavecito",
-      },
-      {
-        key: "pack_quantity",
-        namespace: "suavecito",
-      },
-      {
-        key: "retail_price",
-        namespace: "suavecito",
-      },
+      // {
+      //   key: "example_key",
+      //   namespace: "example",
+      // },
+      // {
+      //   key: "example_key2",
+      //   namespace: "example",
+      // },
     ],
   },
 };

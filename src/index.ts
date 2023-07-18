@@ -7,7 +7,7 @@ import { initializeCSV, startMigration, checkConfig } from "./functions";
 const csvWriter = initializeCSV();
 const isValidConfig = checkConfig();
 if (isValidConfig) {
-  console.log("can start migration");
+  console.log("Starting metafield migration");
   const res = await startMigration(null, csvWriter);
 } else {
   console.log(

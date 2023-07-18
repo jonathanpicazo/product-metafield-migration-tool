@@ -1,4 +1,4 @@
-# Wholesale Metafield Migration Tool
+# Metafield Migration Tool
 
 ## Description
 
@@ -26,8 +26,48 @@ DESTINATION_SHOPIFY_API_VERSION=2023-04
 ```
 
 Also go into src/config.ts and add the metafields you want copied over in the metafieldIdentifiers.
+Your config should look like this.
 
-**The suggested shopify admin and storefront api version is 04/23**
+```
+const config = {
+  apiKey: {
+    storefront: process.env.SOURCE_SHOPIFY_STOREFRONT_KEY,
+    admin: process.env.DESTINATION_SHOPIFY_ADMIN_KEY,
+  },
+  storename: {
+    storefront: process.env.SOURCE_SHOPIFY_STOREFRONT_NAME,
+    admin: process.env.DESTINATION_SHOPIFY_STOREFRONT_NAME,
+  },
+  apiVersion: {
+    storefront: process.env.DESTINATION_SHOPIFY_API_VERSION,
+    admin: process.env.DESTINATION_SHOPIFY_API_VERSION,
+  },
+  metafieldIdentifiers: {
+    product: [
+      {
+        key: "example_key",
+        namespace: "example",
+      },
+      {
+        key: "example_key2",
+        namespace: "example",
+      },
+    ],
+    variant: [
+      {
+        key: "example_v_key",
+        namespace: "example",
+      },
+      {
+        key: "example_v_key",
+        namespace: "example",
+      },
+    ],
+  },
+};
+```
+
+**The suggested Shopify admin and storefront api version is 04/23 for this script!!!!**
 
 ### Installation
 
