@@ -156,7 +156,7 @@ export const migrateMetafields = async (
           "No matching sku in destination store",
           variant.sku
         );
-        break;
+        continue;
       } else if (!matchingSrcVariant.metafields) {
         const csvRes = await createEmptyLog(
           csvWriter,
@@ -164,7 +164,7 @@ export const migrateMetafields = async (
           "Variant has no matching metafields",
           matchingSrcVariant?.sku
         );
-        break;
+        continue;
       }
 
       const variantMetafields = matchingSrcVariant.metafields.filter(
@@ -177,7 +177,7 @@ export const migrateMetafields = async (
         variant
       );
 
-      if (isEmpty(metafieldPayload)) break;
+      if (isEmpty(metafieldPayload)) continue;
       // upload source metafields to destination if payload created
       const res = await uploadMetafields(metafieldPayload);
       const log = createMetafieldLog(res);

@@ -7,7 +7,6 @@ import fetch from "node-fetch";
 import * as CSVWriter from "csv-writer";
 import path from "path";
 import { fileURLToPath } from "url";
-
 import type { CSVRecord, CSVWriterType } from "../lib";
 
 export const fetchStorefrontSource = async (
